@@ -3,90 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>PWA Secreta de Gestos</title>
+    <title>PWA Stealth de Gestos</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- CONFIGURACIÓN PWA PARA PANTALLA COMPLETA/STANDALONE -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="stealth_manifest.json">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&display=swap');
-        
-        /* Estilo para simular la pantalla negra de la PWA instalada */
+        /* Estilos base: Pantalla completamente negra y táctil */
         body, html {
             height: 100%;
             overflow: hidden;
-            touch-action: none; /* Crucial para prevenir el scroll en Android/iOS */
-            font-family: 'Space Grotesk', sans-serif;
+            touch-action: none; 
+            font-family: sans-serif;
             background-color: #000000;
         }
         #app-container {
             height: 100%;
+            width: 100%;
             display: flex;
-            flex-direction: column;
             justify-content: center;
-            align-items: center;
-            color: #E5E7EB;
-            padding: 20px;
+            align-items: flex-end; /* Alinea el contenido en la parte inferior */
+            padding-bottom: 20px;
         }
-        .message-box {
-            background-color: #1A1A1A;
-            border: 2px solid #D4A373; /* Borde de acento */
+
+        /* Estilo para el mensaje de retroalimentación sutil */
+        #feedback-message {
+            /* Fuente pequeña y sutil en la parte inferior */
+            font-size: 0.75rem; /* text-xs de Tailwind */
+            text-align: center;
+            opacity: 0; /* Inicialmente invisible */
+            transition: opacity 0.3s ease, color 0.3s ease;
+            min-height: 1.5rem; /* Previene CLS */
         }
-        .sequence-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background-color: #4B5563; /* Gris */
-            border-radius: 50%;
-            margin: 0 4px;
-            transition: all 0.2s ease;
+
+        /* Colores de estado */
+        .status-success {
+            color: #10B981; /* Verde esmeralda (Green 500) */
         }
-        .sequence-dot.active {
-            background-color: #D4A373; /* Acento */
-        }
-        .text-card-name {
-            min-height: 2.5rem; /* Para evitar CLS al actualizar */
-        }
-        /* Estilo para el texto blanco de la API */
-        #word-to-send {
-            color: white !important; 
+        .status-error {
+            color: #EF4444; /* Rojo (Red 500) */
         }
     </style>
 </head>
 <body>
     <div id="app-container">
-        
-        <!-- Retroalimentación Visual de la Carta -->
-        <div class="text-center mb-8">
-            <h2 id="card-rank" class="text-3xl md:text-5xl font-extrabold text-[#D4A373] text-card-name">
-                <!-- RANK (Ej: AS) -->
-            </h2>
-            <p id="card-suit" class="text-xl md:text-3xl font-light text-gray-400 text-card-name">
-                <!-- SUIT (Ej: de PICAS) -->
-            </p>
-        </div>
-
-        <!-- Muestra el Código Estilizado a Enviar -->
-        <div id="status-display" class="message-box p-4 md:p-6 rounded-xl max-w-lg text-center shadow-2xl">
-            <p class="text-xs text-gray-500 mb-1">CÓDIGO ESTILIZADO (A ENVIAR)</p>
-            <p id="word-to-send" class="text-base md:text-lg font-mono break-all min-h-[1.5rem]">
-                <!-- .@$_D€_P1C@$ -->
-            </p>
-            
-            <div class="mt-4 border-t border-gray-700 pt-3">
-                <p id="main-status" class="text-lg font-bold text-white transition-opacity duration-500">
-                    LISTO PARA GESTOS
-                </p>
-                <!-- Indicador de Secuencia (Visual) -->
-                <div class="flex justify-center items-center mt-2">
-                    <span class="text-sm text-gray-500 mr-2">Swipe:</span>
-                    <span id="swipe-dot-1" class="sequence-dot"></span>
-                    <span id="swipe-dot-2" class="sequence-dot"></span>
-                    <span id="swipe-dot-3" class="sequence-dot"></span>
-                </div>
-            </div>
-        </div>
-        
-        <p class="text-xs text-gray-600 absolute bottom-4">
-            Área de GESTOS TÁCTILES | Dirección IP: 192.168.4.1
-        </p>
+        <!-- Único elemento visible: el mensaje de retroalimentación sutil -->
+        <p id="feedback-message" class="text-xs"></p>
     </div>
 
     <script>
@@ -94,6 +56,7 @@
         const API_URL = 'http://192.168.4.1';
         const MAX_RETRIES = 5;
         const SWIPE_THRESHOLD = 30; 
+        const API_TIMEOUT_MS = 5000; 
 
         // 1. Mapeo de Conversión de VALOR (2 Swipes)
         const SWIPE_TO_VALUE = {
@@ -109,7 +72,7 @@
             "ll": { name: "NUEVE", code: "NU€V€_" },
             "lu": { name: "DIEZ", code: "D1€2_D€_" },
             "ul": { name: "JOTA", code: "J07@_D€_" },
-            "ud": { name: "REY", code: "R€1_D€_" } // Usando 'REY' como base para REYP
+            "ud": { name: "REY", code: "R€1_D€_" }
         };
 
         // 2. Mapeo de Conversión de PALO (1 Swipe)
@@ -126,33 +89,44 @@
         let touchstartY = 0;
         let touchendY = 0;
 
-        const mainStatus = document.getElementById('main-status');
-        const wordToSendDisplay = document.getElementById('word-to-send');
-        const cardRankDisplay = document.getElementById('card-rank');
-        const cardSuitDisplay = document.getElementById('card-suit');
-        const swipeDots = [
-            document.getElementById('swipe-dot-1'),
-            document.getElementById('swipe-dot-2'),
-            document.getElementById('swipe-dot-3')
-        ];
+        const feedbackMessage = document.getElementById('feedback-message');
 
         /**
-         * Actualiza la visualización de los puntos de la secuencia de swipes.
+         * Muestra o borra el mensaje de retroalimentación en la parte inferior.
+         * @param {string} message Mensaje a mostrar. Si es nulo o vacío, el mensaje se oculta.
+         * @param {string} status 'success' para verde, 'error' para rojo, 'loading' para gris.
          */
-        function updateSwipeDots() {
-            swipeDots.forEach((dot, index) => {
-                if (index < swipeSequence.length) {
-                    dot.classList.add('active');
-                } else {
-                    dot.classList.remove('active');
-                }
-            });
+        function setFeedback(message, status = 'loading') {
+            if (!message) {
+                // Borrar mensaje (4to swipe exitoso)
+                feedbackMessage.textContent = '';
+                feedbackMessage.style.opacity = 0;
+                feedbackMessage.className = '';
+                return;
+            }
+
+            // Aplicar contenido y visibilidad
+            feedbackMessage.textContent = message;
+            feedbackMessage.style.opacity = 1;
+
+            // Aplicar color de estado
+            if (status === 'success') {
+                feedbackMessage.className = 'status-success';
+            } else if (status === 'error') {
+                feedbackMessage.className = 'status-error';
+            } else {
+                // Estado 'loading' o intermedio (gris sutil)
+                feedbackMessage.className = 'text-gray-400';
+            }
         }
 
+
         /**
-         * Traduce la secuencia actual de gestos al nombre de la carta y el código estilizado.
+         * Devuelve el objeto de la carta completa (nombre y código) si la secuencia es válida.
          */
-        function updateCardDisplay() {
+        function getCardData() {
+            if (swipeSequence.length !== 3) return null;
+
             const currentSequence = swipeSequence.join('');
             const valueCode = currentSequence.slice(0, 2);
             const suitCode = currentSequence.slice(2, 3);
@@ -160,111 +134,80 @@
             const valueData = SWIPE_TO_VALUE[valueCode];
             const suitData = SWIPE_TO_SUIT[suitCode];
 
-            // ------------------------------------
-            // 1. Mostrar retroalimentación parcial
-            // ------------------------------------
-            if (swipeSequence.length > 0) {
-                const directions = { 'u': '↑', 'd': '↓', 'l': '←', 'r': '→' };
-                let currentRank = '';
-                
-                // Muestra los gestos realizados
-                for (let i = 0; i < swipeSequence.length; i++) {
-                    currentRank += directions[swipeSequence[i]] || '';
-                    if (i < swipeSequence.length - 1) currentRank += ' ';
-                }
-
-                cardRankDisplay.textContent = currentRank;
-                cardSuitDisplay.textContent = `Swipe: ${swipeSequence.length} de 3`;
-                wordToSendDisplay.textContent = (swipeSequence.length < 3) ? "Esperando 3er Swipe..." : "Calculando código...";
-            } else {
-                cardRankDisplay.textContent = "LISTO";
-                cardSuitDisplay.textContent = "Inicia el gesto (Valor: 2 sw, Palo: 1 sw)";
-                wordToSendDisplay.textContent = "El código final aparecerá aquí.";
+            if (valueData && suitData) {
+                return {
+                    name: `${valueData.name} de ${suitData.name}`,
+                    code: `.${valueData.code}${suitData.code}`
+                };
             }
-
-            // ------------------------------------
-            // 2. Mostrar código final si está completo
-            // ------------------------------------
-            if (swipeSequence.length === 3) {
-                if (valueData && suitData) {
-                    cardRankDisplay.textContent = valueData.name;
-                    cardSuitDisplay.textContent = `de ${suitData.name}`;
-
-                    // Generar la palabra final para la API: .[VALOR][PALO]
-                    const finalWord = `.${valueData.code}${suitData.code}`;
-                    wordToSendDisplay.textContent = finalWord;
-
-                } else {
-                    cardRankDisplay.textContent = "CÓDIGO NO VÁLIDO";
-                    cardSuitDisplay.textContent = "¡Intenta otra secuencia!";
-                    wordToSendDisplay.textContent = `Valor: ${valueCode ? 'OK' : 'X'}, Palo: ${suitCode ? 'OK' : 'X'}`;
-                }
-            }
-
-            updateSwipeDots();
+            return null;
         }
 
-        /**
-         * Muestra un mensaje de estado temporal en el centro de la pantalla.
-         */
-        function displayStatus(message, color = 'text-white', duration = 3000) {
-            mainStatus.textContent = message;
-            mainStatus.className = `text-lg font-bold ${color} transition-opacity duration-500`;
-            
-            if (message !== "LISTO PARA GESTOS") {
-                setTimeout(() => {
-                    mainStatus.textContent = "LISTO PARA GESTOS";
-                    mainStatus.className = `text-lg font-bold text-white transition-opacity duration-500`;
-                }, duration);
-            }
-        }
 
         /**
-         * Realiza una llamada a la API con backoff exponencial y reintentos.
-         * Se ha añadido lógica para manejar los códigos de respuesta 200, 422 y 409.
+         * Realiza una llamada a la API con backoff exponencial, reintentos y TIMEOUT forzado.
          */
-        async function callApiWithBackoff(endpoint, retryCount = 0) {
+        async function callApiWithBackoff(endpoint, isStopCall, cardName = '', retryCount = 0) {
             const fullUrl = `${API_URL}${endpoint}`;
             const delay = Math.pow(2, retryCount) * 1000 + (Math.random() * 500);
-            const isStopCall = endpoint.includes('stop');
-            const CRITICAL_DURATION = 15000; // 15 segundos para fallos críticos de red.
+
+            // 1. Mostrar estado de carga (gris)
+            if (!isStopCall) {
+                setFeedback(`${cardName} - ENVIANDO...`, 'loading');
+            } else if (isStopCall && retryCount === 0) {
+                 setFeedback(`PARADA - ENVIANDO...`, 'loading');
+            }
+
 
             try {
                 if (retryCount > 0) {
-                    displayStatus(`REINTENTO (${retryCount}): ${isStopCall ? 'Parada' : 'Carta'}...`, 'text-yellow-400', 5000);
+                    // Espera exponencial en reintento
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
                 
-                // Usamos 'no-cors' para IPs locales. El status puede ser 0 o 200 (opaco).
-                const response = await fetch(fullUrl, { method: 'GET', mode: 'no-cors' });
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS); 
+
+                const response = await fetch(fullUrl, { 
+                    method: 'GET', 
+                    mode: 'no-cors',
+                    signal: controller.signal 
+                });
                 
-                // --- LÓGICA DE MANEJO DE ESTADO DE RESPUESTA (200, 409, 422) ---
+                clearTimeout(timeoutId); 
 
-                if (response.status === 200) {
-                    displayStatus(`API OK (200): ${isStopCall ? 'Parada enviada correctamente.' : 'Carta enviada correctamente.'}`, 'text-green-400', 5000);
-                } else if (!isStopCall && response.status === 409) {
-                    displayStatus('ERROR (409): Ya hay una carta enviada. ¡4º swipe para PARAR!', 'text-orange-500', 7000);
+                // --- LÓGICA DE RESPUESTA ---
+                if (response.status === 200 || response.status === 0 || response.status === undefined) {
+                    // Status 200, 0 o undefined = ÉXITO (o petición enviada con 'no-cors')
+                    if (isStopCall) {
+                        setFeedback(null); // Desaparecer el texto (Requisito 4)
+                    } else {
+                        setFeedback(`${cardName} - ENVIADO`, 'success'); // Verde (Requisito 3)
+                    }
+                } 
+                // Códigos de error específicos
+                else if (!isStopCall && response.status === 409) {
+                    setFeedback(`${cardName} - ERROR (409: Ya hay carta)`, 'error'); // Rojo (Requisito 3)
                 } else if (!isStopCall && response.status === 422) {
-                    displayStatus('ERROR (422): El código de carta está vacío.', 'text-red-500', 7000);
-                } else {
-                    // Si el status no es 200, 409, 422, o es 0 (típico en 'no-cors'), avisamos de la limitación.
-                    const msg = (response.status === 0 || response.status === undefined)
-                        ? "AVISO: Solicitud enviada, pero el navegador bloqueó la lectura del estado (CORS/No-CORS)."
-                        : `AVISO: Llamada realizada. Código inesperado (${response.status}).`;
-
-                    displayStatus(msg, 'text-yellow-500', 7000);
+                    setFeedback(`${cardName} - ERROR (422: Código inválido)`, 'error'); // Rojo (Requisito 3)
+                }
+                // Otro código de error
+                else {
+                    const message = isStopCall 
+                        ? `PARADA - ERROR (${response.status} inesperado)` 
+                        : `${cardName} - ERROR (${response.status} inesperado)`;
+                    setFeedback(message, 'error'); // Rojo (Requisito 3)
                 }
 
             } catch (error) {
-                // Esto maneja errores de red (e.g., el servidor no existe o no responde)
-                console.error(`Error de red/fetch (${fullUrl}):`, error.message);
-                
+                // Este bloque captura errores de red Y el timeout
                 if (retryCount < MAX_RETRIES) {
-                    console.warn(`Reintentando en ${delay / 1000}s...`);
-                    await callApiWithBackoff(endpoint, retryCount + 1);
+                    await callApiWithBackoff(endpoint, isStopCall, cardName, retryCount + 1);
                 } else {
-                    displayStatus('FALLO CRÍTICO DE RED. Servidor no encontrado o sin respuesta.', 'text-red-400', CRITICAL_DURATION);
-                    console.error('Límite de reintentos alcanzado. Fallo en la llamada a la API.');
+                    const message = error.name === 'AbortError' 
+                        ? (isStopCall ? 'PARADA - FALLO: TIMEOUT' : `${cardName} - FALLO: TIMEOUT`)
+                        : (isStopCall ? 'PARADA - FALLO CRÍTICO DE RED' : `${cardName} - FALLO CRÍTICO DE RED`);
+                    setFeedback(message, 'error'); // Rojo (Requisito 3)
                 }
             }
         }
@@ -295,47 +238,44 @@
                 swipeSequence.push(direction);
             }
             
-            updateCardDisplay();
-            
             // Lógica de 3 swipes (Enviar Código)
             if (swipeSequence.length === 3) {
-                const valueCode = swipeSequence.slice(0, 2).join('');
-                const suitCode = swipeSequence[2];
-                
-                const valueData = SWIPE_TO_VALUE[valueCode];
-                const suitData = SWIPE_TO_SUIT[suitCode];
+                const cardData = getCardData();
 
-                if (valueData && suitData) {
-                    const word = `.${valueData.code}${suitData.code}`;
-                    // 1. Envolver en comillas dobles 2. Codificar URL
-                    const encodedWord = encodeURIComponent(`"${word}"`); 
+                if (cardData) {
+                    // Envolver en comillas dobles y Codificar URL
+                    const encodedWord = encodeURIComponent(`"${cardData.code}"`); 
                     const endpoint = `/send?word=${encodedWord}`;
                     
-                    displayStatus(`CARTA ENCONTRADA: ${valueData.name} de ${suitData.name}`, 'text-blue-400', 5000);
-                    console.log(`Secuencia 3/3 completa. Enviando API: ${API_URL}${endpoint}`);
-                    
-                    callApiWithBackoff(endpoint);
+                    // Mostrar retroalimentación "ENVIANDO..."
+                    setFeedback(`${cardData.name} - ENVIANDO...`, 'loading');
+
+                    // Llamar a la API
+                    callApiWithBackoff(endpoint, false, cardData.name);
                     
                 } else {
-                    displayStatus(`CÓDIGO NO VÁLIDO: ${valueCode}${suitCode}`, 'text-red-500');
+                    // Secuencia de 3 gestos no válida
+                    setFeedback(`CÓDIGO NO VÁLIDO: ${swipeSequence.join('')}`, 'error');
                 }
             } 
             
             // Lógica de 4to swipe (Detener Transmisión)
             else if (swipeSequence.length === 4) {
                 const endpoint = '/stopSending';
-                displayStatus(`4TO SWIPE DETECTADO: Deteniendo...`, 'text-orange-400', 5000);
-                console.log(`4to swipe detectado. Enviando API: ${API_URL}${endpoint}`);
                 
-                callApiWithBackoff(endpoint);
+                // Mostrar retroalimentación "DETENIENDO..."
+                setFeedback(`PARADA - ENVIANDO...`, 'loading');
                 
-                // Reiniciar secuencia
+                // Llamar a la API
+                callApiWithBackoff(endpoint, true); 
+                
+                // Reiniciar secuencia inmediatamente para el siguiente gesto
                 swipeSequence = [];
-                updateCardDisplay();
             } 
         }
 
         // --- MANEJO DE EVENTOS TÁCTILES y de RATÓN ---
+        // (La lógica es idéntica a la versión anterior, solo cambiamos a 'stealth')
         function touchStart(event) {
             event.preventDefault(); 
             touchstartX = event.changedTouches[0].clientX;
@@ -389,8 +329,7 @@
             container.addEventListener('mouseup', mouseUp, false);
             document.body.addEventListener('mouseup', mouseUp, false);
 
-            updateCardDisplay(); // Inicializar display
-            console.log("PWA de gestos inicializada.");
+            console.log("PWA de gestos en Modo Stealth inicializada.");
         };
 
     </script>
