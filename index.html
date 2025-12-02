@@ -7,7 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- CONFIGURACIÓN PWA PARA PANTALLA COMPLETA/STANDALONE -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="manifest" href="stealth_manifest.json">
+    <!-- Enlace al Manifest -->
+    <link rel="manifest" href="stealth_manifest.json"> 
     <style>
         /* Estilos base: Pantalla completamente negra y táctil */
         body, html {
@@ -21,8 +22,9 @@
             height: 100%;
             width: 100%;
             display: flex;
-            justify-content: center;
-            align-items: flex-end; /* Alinea el contenido en la parte inferior */
+            flex-direction: column; /* Asegura que el contenido (feedback) esté en la parte inferior */
+            justify-content: flex-end; /* Alinea el contenido en la parte inferior */
+            align-items: center; 
             padding-bottom: 20px;
         }
 
@@ -180,23 +182,23 @@
                 if (response.status === 200 || response.status === 0 || response.status === undefined) {
                     // Status 200, 0 o undefined = ÉXITO (o petición enviada con 'no-cors')
                     if (isStopCall) {
-                        setFeedback(null); // Desaparecer el texto (Requisito 4)
+                        setFeedback(null); // Desaparecer el texto 
                     } else {
-                        setFeedback(`${cardName} - ENVIADO`, 'success'); // Verde (Requisito 3)
+                        setFeedback(`${cardName} - ENVIADO`, 'success'); // Verde
                     }
                 } 
                 // Códigos de error específicos
                 else if (!isStopCall && response.status === 409) {
-                    setFeedback(`${cardName} - ERROR (409: Ya hay carta)`, 'error'); // Rojo (Requisito 3)
+                    setFeedback(`${cardName} - ERROR (409: Ya hay carta)`, 'error'); // Rojo 
                 } else if (!isStopCall && response.status === 422) {
-                    setFeedback(`${cardName} - ERROR (422: Código inválido)`, 'error'); // Rojo (Requisito 3)
+                    setFeedback(`${cardName} - ERROR (422: Código inválido)`, 'error'); // Rojo 
                 }
                 // Otro código de error
                 else {
                     const message = isStopCall 
                         ? `PARADA - ERROR (${response.status} inesperado)` 
                         : `${cardName} - ERROR (${response.status} inesperado)`;
-                    setFeedback(message, 'error'); // Rojo (Requisito 3)
+                    setFeedback(message, 'error'); // Rojo
                 }
 
             } catch (error) {
@@ -207,7 +209,7 @@
                     const message = error.name === 'AbortError' 
                         ? (isStopCall ? 'PARADA - FALLO: TIMEOUT' : `${cardName} - FALLO: TIMEOUT`)
                         : (isStopCall ? 'PARADA - FALLO CRÍTICO DE RED' : `${cardName} - FALLO CRÍTICO DE RED`);
-                    setFeedback(message, 'error'); // Rojo (Requisito 3)
+                    setFeedback(message, 'error'); // Rojo
                 }
             }
         }
@@ -275,7 +277,6 @@
         }
 
         // --- MANEJO DE EVENTOS TÁCTILES y de RATÓN ---
-        // (La lógica es idéntica a la versión anterior, solo cambiamos a 'stealth')
         function touchStart(event) {
             event.preventDefault(); 
             touchstartX = event.changedTouches[0].clientX;
@@ -318,6 +319,13 @@
         // Inicialización
         window.onload = function() {
             const container = document.getElementById('app-container');
+
+            // --- REGISTRO DEL SERVICE WORKER (PWA) ---
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registrado con éxito:', reg.scope))
+                    .catch(err => console.error('Fallo en el registro del Service Worker:', err));
+            }
 
             // Eventos táctiles
             container.addEventListener('touchstart', touchStart, { passive: false });
