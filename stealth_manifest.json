@@ -1,9 +1,10 @@
 {
     "name": "Hacker",
     "short_name": "Hacker",
-    "description": "Hacker",
+    "description": "Aplicación de control remoto basada en gestos con interfaz secreta.",
     "start_url": "./",
     "display": "fullscreen",
+    "orientation": "portrait",
     "background_color": "#000000",
     "theme_color": "#000000",
     "icons": [
