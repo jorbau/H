@@ -1,8 +1,8 @@
 {
-    "name": "Stealth Gestos",
-    "short_name": "Gestos",
-    "description": "Aplicación de gestos en modo invisible.",
-    "start_url": "./pwa_gestos_stealth.html",
+    "name": "Hacker",
+    "short_name": "Hacker",
+    "description": "Aplicación de gestos de cartas para Hacker.",
+    "start_url": "./index.html",
     "display": "standalone",
     "background_color": "#000000",
     "theme_color": "#000000",
